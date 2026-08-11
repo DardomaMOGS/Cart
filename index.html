@@ -1,179 +1,51 @@
-<div style="font-family:Arial,sans-serif;max-width:900px;margin:auto;color:#17233c">
-
-<h1 style="text-align:center">🛒 DardomaMOGS Cart</h1>
-
-<div id="products" style="display:flex;flex-wrap:wrap;gap:15px;justify-content:center"></div>
-
-<hr style="margin:30px 0">
-
-<h2>🛒 Your Cart</h2>
-<div id="cart"></div>
-
-<div id="summary" style="margin-top:20px"></div>
-
-<button onclick="placeOrder()" style="padding:12px 20px;border:0;border-radius:10px;background:#17233c;color:white;font-weight:bold;cursor:pointer">
-Place Order
-</button>
-
-<div id="order" style="margin-top:20px"></div>
-
-<script>
-const DELIVERY_FEE = 20;
-
-const products = [
-  {name:"Karkade",emoji:"❤️",price:10},
-  {name:"Mango",emoji:"🥭",price:10},
-  {name:"Pepsi",emoji:"🥤",price:10}
-];
-
-let cart = [];
-
-function showProducts(){
-  document.getElementById("products").innerHTML = products.map((p,i)=>`
-    <div style="background:white;border:1px solid #ddd;border-radius:15px;padding:20px;text-align:center;width:200px">
-      <div style="font-size:50px">${p.emoji}</div>
-      <h2>${p.name}</h2>
-      <p><b>${p.price} EGP</b></p>
-      <button onclick="add(${i})"
-        style="padding:10px 15px;border:0;border-radius:8px;background:#17233c;color:white;font-weight:bold">
-        Add to Cart
-      </button>
-    </div>
-  `).join("");
-}
-
-function add(i){
-  cart.push(products[i]);
-  showCart();
-}
-
-function removeItem(i){
-  cart.splice(i,1);
-  showCart();
-}
-
-function showCart(){
-
-  let subtotal = 0;
-
-  if(cart.length === 0){
-
-    document.getElementById("cart").innerHTML =
-      "<p>Your cart is empty.</p>";
-
-    document.getElementById("summary").innerHTML =
-      "<h2>Total: 0 EGP</h2>";
-
-    return;
-  }
-
-  document.getElementById("cart").innerHTML = cart.map((p,i)=>{
-
-    subtotal += p.price;
-
-    return `
-      <div style="padding:10px;border-bottom:1px solid #ddd">
-        ${p.emoji} <b>${p.name}</b> — ${p.price} EGP
-
-        <button onclick="removeItem(${i})"
-          style="margin-left:10px">
-          Remove
-        </button>
-      </div>
-    `;
-
-  }).join("");
-
-  const total = subtotal + DELIVERY_FEE;
-
-  document.getElementById("summary").innerHTML = `
-    <div style="padding:15px;background:#f1f5ff;border-radius:15px">
-
-      <p><b>Subtotal:</b> ${subtotal} EGP</p>
-
-      <p><b>🚚 Delivery:</b> ${DELIVERY_FEE} EGP</p>
-
-      <hr>
-
-      <h2>💰 Total: ${total} EGP</h2>
-
-    </div>
-  `;
-}
-
-function placeOrder(){
-
-  if(cart.length === 0){
-    alert("Your cart is empty!");
-    return;
-  }
-
-  let items = cart.map(p => p.name).join(", ");
-
-  let subtotal = cart.reduce(
-    (sum,p) => sum + p.price, 0
-  );
-
-  let total = subtotal + DELIVERY_FEE;
-
-  document.getElementById("order").innerHTML = `
-    <div style="padding:20px;background:#f1f5ff;border-radius:15px">
-
-      <h2>📦 Order Details</h2>
-
-      <label>Your name:</label><br>
-
-      <input id="name"
-        style="padding:10px;width:90%;margin:8px 0">
-
-      <br>
-
-      <label>Contact information:</label><br>
-
-      <input id="contact"
-        style="padding:10px;width:90%;margin:8px 0">
-
-      <br>
-
-      <p><b>Items:</b> ${items}</p>
-
-      <p><b>Subtotal:</b> ${subtotal} EGP</p>
-
-      <p><b>🚚 Delivery:</b> ${DELIVERY_FEE} EGP</p>
-
-      <p><b>💰 Total:</b> ${total} EGP</p>
-
-      <button onclick="finishOrder()"
-        style="padding:12px 20px;border:0;border-radius:10px;background:#17233c;color:white;font-weight:bold">
-
-        Submit Order
-
-      </button>
-
-    </div>
-  `;
-}
-
-function finishOrder(){
-
-  let name = document.getElementById("name").value;
-  let contact = document.getElementById("contact").value;
-
-  if(!name || !contact){
-
-    alert("Please enter your name and contact information.");
-
-    return;
-  }
-
-  alert(
-    "Thank you, " + name +
-    "! Your order has been prepared."
-  );
-}
-
-showProducts();
-showCart();
-</script>
-
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DardomaMOGS Cart</title>
+<style>
+body{font-family:Arial;margin:0;background:#f7f7f7;color:#17233c}.wrap{max-width:850px;margin:auto;padding:24px}
+.box{background:white;border-radius:18px;padding:20px;margin:18px 0;box-shadow:0 5px 18px #0001}
+.row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:14px 0}
+button{background:#17233c;color:white;border:0;border-radius:9px;padding:9px 13px;font-weight:bold;cursor:pointer}
+input,textarea{width:100%;box-sizing:border-box;padding:10px;margin:6px 0 12px;border:1px solid #ccc;border-radius:9px}
+.summary{background:#eef3ff;padding:15px;border-radius:12px;margin:16px 0}
+</style></head>
+<body><div class="wrap">
+<h1>🛒 DardomaMOGS Cart</h1>
+<div class="box" id="message"></div>
+<div class="box"><h2>Your Cart</h2><div id="items"></div><div id="summary"></div>
+<button onclick="order()">Place Order</button><div id="form" style="display:none"><hr>
+<h2>📦 Order Details</h2><label>Name</label><input id="name">
+<label>Contact information</label><input id="contact">
+<label>Notes</label><textarea id="notes"></textarea>
+<button onclick="submitOrder()">Create Order Summary</button></div><div id="result"></div></div>
 </div>
+<script>
+const fee=20, P={
+ mango:{n:"Mango Dardoma",e:"🥭",p:10},
+ karkade:{n:"Karkade Dardoma",e:"❤️",p:10},
+ pepsi:{n:"Pepsi Dardoma",e:"🥤",p:10}
+};
+let cart=JSON.parse(localStorage.getItem("dm_cart")||"{}");
+function save(){localStorage.setItem("dm_cart",JSON.stringify(cart))}
+function add(id){cart[id]=(cart[id]||0)+1;save();draw()}
+function qty(id,n){cart[id]=(cart[id]||0)+n;if(cart[id]<=0)delete cart[id];save();draw()}
+function draw(){
+ let ids=Object.keys(cart), sub=0;
+ if(!ids.length){items.innerHTML="<p>Your cart is empty.</p>";summary.innerHTML="<b>Total: 0 EGP</b>";return}
+ items.innerHTML=ids.map(id=>{let x=P[id],q=cart[id],s=x.p*q;sub+=s;
+ return `<div class="row"><span>${x.e} <b>${x.n}</b><br>${x.p} EGP × ${q} = ${s} EGP</span>
+ <span><button onclick="qty('${id}',-1)">−</button> <button onclick="qty('${id}',1)">+</button></span></div>`}).join("");
+ summary.innerHTML=`<div class="summary">Subtotal: <b>${sub} EGP</b><br>🚚 Delivery: <b>${fee} EGP</b><hr><h2>Total: ${sub+fee} EGP</h2></div>`
+}
+function order(){if(!Object.keys(cart).length)return alert("Your cart is empty!");form.style.display="block"}
+function esc(s){let d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function submitOrder(){
+ let n=name.value.trim(),c=contact.value.trim();if(!n||!c)return alert("Please enter your name and contact information.");
+ let sub=0,lines=[];Object.keys(cart).forEach(id=>{let x=P[id],s=x.p*cart[id];sub+=s;lines.push(`${x.n} × ${cart[id]} = ${s} EGP`)});
+ result.innerHTML=`<div class="summary"><h2>✅ Order Summary</h2><p><b>Name:</b> ${esc(n)}</p><p><b>Contact:</b> ${esc(c)}</p><p>${lines.map(esc).join("<br>")}</p><p>Subtotal: ${sub} EGP<br>🚚 Delivery: ${fee} EGP</p><h3>Total: ${sub+fee} EGP</h3>${notes.value?`<p><b>Notes:</b> ${esc(notes.value)}</p>`:""}</div>`
+}
+let q=new URLSearchParams(location.search), product=q.get("product");
+if(product&&P[product]){add(product);message.innerHTML=`✅ <b>${P[product].n}</b> was added to your cart!`;history.replaceState({},'',location.pathname)}
+else message.innerHTML="Choose a product from your DardomaMOGS website, or use the cart below.";
+draw();
+</script></body></html>
