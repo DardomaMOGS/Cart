@@ -5,8 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DardomaMOGS Cart</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5;color:#17233c}
-.container{max-width:850px;margin:auto;padding:24px}.card{background:#fff;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 5px 18px rgba(0,0,0,.08)}
+*{box-sizing:border-box}body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f5f5f5 url("dardomamogs-background.png") center top / cover fixed no-repeat;
+  color:#17233c;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:rgba(255,255,255,.12);
+  z-index:-1;
+}
+.container{max-width:850px;margin:auto;padding:24px}.card{background:rgba(255,255,255,.94);border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 5px 18px rgba(0,0,0,.08)}
 .status{text-align:center;border-radius:14px;padding:15px;margin-bottom:18px;font-size:20px;font-weight:bold}.open{background:#e7f7e8;color:#176b2c}.closed{background:#ffe7e7;color:#a32222}
 .product{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:15px 0;gap:15px}
 button{border:0;border-radius:9px;padding:10px 15px;background:#17233c;color:white;font-weight:bold;cursor:pointer}button:disabled{background:#999;cursor:not-allowed}
