@@ -5,225 +5,136 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DardomaMOGS Cart</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5;color:#17233c}
-.container{max-width:850px;margin:auto;padding:24px}
-.card{background:#fff;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 5px 18px rgba(0,0,0,.08)}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5;color:#17233c}
+.container{max-width:850px;margin:auto;padding:24px}.card{background:#fff;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 5px 18px rgba(0,0,0,.08)}
+.status{text-align:center;border-radius:14px;padding:15px;margin-bottom:18px;font-size:20px;font-weight:bold}.open{background:#e7f7e8;color:#176b2c}.closed{background:#ffe7e7;color:#a32222}
 .product{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:15px 0;gap:15px}
-button{border:0;border-radius:9px;padding:10px 15px;background:#17233c;color:white;font-weight:bold;cursor:pointer}
-.qty button{padding:7px 11px;margin-left:4px}
-input,select,textarea{width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;margin:6px 0 14px;font:inherit}
-.summary{background:#eef3ff;border-radius:12px;padding:16px;margin:18px 0}
-.success{background:#e7f7e8;border-radius:12px;padding:16px;margin-top:18px}
-#orderForm{display:none}
+button{border:0;border-radius:9px;padding:10px 15px;background:#17233c;color:white;font-weight:bold;cursor:pointer}button:disabled{background:#999;cursor:not-allowed}
+.qty button{padding:7px 11px;margin-left:4px}input,select,textarea{width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;margin:6px 0 14px;font:inherit}
+.summary{background:#eef3ff;border-radius:12px;padding:16px;margin:18px 0}.success{background:#e7f7e8;border-radius:12px;padding:16px;margin-top:18px}#orderForm{display:none}
 </style>
 </head>
 <body>
 <div class="container">
+<div id="storeStatus" class="status"></div>
 <h1>🛒 DardomaMOGS Cart</h1>
-
+<div class="card"><div id="message">Choose a product from your DardomaMOGS website.</div></div>
 <div class="card">
-<div id="message">Choose a product from your DardomaMOGS website.</div>
-</div>
-
-<div class="card">
-<h2>Your Cart</h2>
-<div id="items"></div>
-<div id="summary"></div>
-<button type="button" onclick="showOrderForm()">Place Order</button>
-
+<h2>Your Cart</h2><div id="items"></div><div id="summary"></div>
+<button id="placeOrderButton" type="button" onclick="showOrderForm()">Place Order</button>
 <div id="orderForm">
-<hr>
-<h2>📦 Order Details</h2>
-
-<label>Customer Name</label>
-<input id="customerName" type="text" placeholder="Your name">
-
-<label>Contact Information</label>
-<input id="customerContact" type="text" placeholder="Your phone or contact">
-
+<hr><h2>📦 Order Details</h2>
+<label>Customer Name</label><input id="customerName" type="text" placeholder="Your name">
+<label>Contact Information</label><input id="customerContact" type="text" placeholder="Your phone or contact">
 <label>Payment Method</label>
-<select id="paymentMethod">
-<option value="">Choose a payment method</option>
-<option value="Instapay">🏦 InstaPay</option>
-<option value="Cash on delivery">💵 Cash on delivery</option>
-</select>
-
-
-
-<label>Notes</label>
-<textarea id="customerNotes" rows="3" placeholder="Optional"></textarea>
-
+<select id="paymentMethod"><option value="">Choose a payment method</option><option value="Instapay">🏦 InstaPay</option><option value="Cash on delivery">💵 Cash on delivery</option></select>
+<label>Notes</label><textarea id="customerNotes" rows="3" placeholder="Optional"></textarea>
 <button type="button" onclick="sendOrder()">Send Order</button>
 </div>
-
 <div id="result"></div>
-</div>
-</div>
+</div></div>
 
 <iframe name="googleFormFrame" style="display:none"></iframe>
-
-<form id="realGoogleForm"
-action="https://docs.google.com/forms/d/e/1FAIpQLSfcFu09aQGcBszMQvutwk_huj8BK4CqtSwdU8HerbVei-lftw/formResponse"
-method="POST"
-target="googleFormFrame"
-style="display:none">
-
-<input name="entry.1661561910" id="gName">
-<input name="entry.544821231" id="gContact">
-<textarea name="entry.1211593112" id="gOrder"></textarea>
-<textarea name="entry.212349483" id="gNotes"></textarea>
+<form id="realGoogleForm" action="https://docs.google.com/forms/d/e/1FAIpQLSfcFu09aQGcBszMQvutwk_huj8BK4CqtSwdU8HerbVei-lftw/formResponse" method="POST" target="googleFormFrame" style="display:none">
+<input name="entry.1661561910" id="gName"><input name="entry.544821231" id="gContact">
+<textarea name="entry.1211593112" id="gOrder"></textarea><textarea name="entry.212349483" id="gNotes"></textarea>
 <input name="entry.412155072" id="gPayment">
 </form>
 
 <script>
-const DELIVERY_FEE = 20;
-
-const products = {
-  mango:{name:"Mango Dardoma",emoji:"🥭",price:10},
-  karkade:{name:"Karkade Dardoma",emoji:"❤️",price:10},
-  pepsi:{name:"Pepsi Dardoma",emoji:"🥤",price:10}
+const DELIVERY_FEE=20;
+const products={
+mango:{name:"Mango Dardoma",emoji:"🥭",price:10},
+karkade:{name:"Karkade Dardoma",emoji:"❤️",price:10},
+pepsi:{name:"Pepsi Dardoma",emoji:"🥤",price:10}
 };
 
-let cart = JSON.parse(localStorage.getItem("dardoma_cart") || "{}");
-
-function saveCart(){
-  localStorage.setItem("dardoma_cart",JSON.stringify(cart));
+function isStoreOpen(){
+ const now=new Date(), minutes=now.getHours()*60+now.getMinutes();
+ return minutes>=840 || minutes<120;
 }
 
+function updateStoreStatus(){
+ const status=document.getElementById("storeStatus");
+ const button=document.getElementById("placeOrderButton");
+ if(isStoreOpen()){
+  status.className="status open";
+  status.innerHTML="🟢 DardomaMOGS is OPEN!<br><small>Open until 2:00 AM</small>";
+  button.disabled=false;
+ }else{
+  status.className="status closed";
+  status.innerHTML="🔴 DardomaMOGS is CLOSED<br><small>We open at 2:00 PM</small>";
+  button.disabled=true;
+  document.getElementById("orderForm").style.display="none";
+ }
+}
+
+let cart=JSON.parse(localStorage.getItem("dardoma_cart")||"{}");
+
+function saveCart(){localStorage.setItem("dardoma_cart",JSON.stringify(cart));}
+
 function addProduct(id){
-  if(!products[id]) return;
-  cart[id]=(cart[id]||0)+1;
-  saveCart();
-  renderCart();
+ if(!products[id])return;
+ if(!isStoreOpen()){alert("DardomaMOGS is currently closed. We're open from 2:00 PM to 2:00 AM.");return;}
+ cart[id]=(cart[id]||0)+1;saveCart();renderCart();
 }
 
 function changeQuantity(id,amount){
-  cart[id]=(cart[id]||0)+amount;
-  if(cart[id]<=0) delete cart[id];
-  saveCart();
-  renderCart();
+ cart[id]=(cart[id]||0)+amount;if(cart[id]<=0)delete cart[id];saveCart();renderCart();
 }
 
 function renderCart(){
-  const ids=Object.keys(cart);
-  let subtotal=0;
-
-  if(ids.length===0){
-    document.getElementById("items").innerHTML="<p>Your cart is empty.</p>";
-    document.getElementById("summary").innerHTML="<strong>Total: 0 EGP</strong>";
-    return;
-  }
-
-  document.getElementById("items").innerHTML=ids.map(id=>{
-    const p=products[id],q=cart[id],itemTotal=p.price*q;
-    subtotal+=itemTotal;
-    return `
-      <div class="product">
-        <div>${p.emoji} <strong>${p.name}</strong><br>${p.price} EGP × ${q} = ${itemTotal} EGP</div>
-        <div class="qty">
-          <button type="button" onclick="changeQuantity('${id}',-1)">−</button>
-          <button type="button" onclick="changeQuantity('${id}',1)">+</button>
-        </div>
-      </div>`;
-  }).join("");
-
-  const total=subtotal+DELIVERY_FEE;
-
-  document.getElementById("summary").innerHTML=`
-    <div class="summary">
-      Subtotal: <strong>${subtotal} EGP</strong><br>
-      🚚 Delivery: <strong>${DELIVERY_FEE} EGP</strong>
-      <hr>
-      <h2>Total: ${total} EGP</h2>
-    </div>`;
+ const ids=Object.keys(cart);let subtotal=0;
+ if(ids.length===0){
+  document.getElementById("items").innerHTML="<p>Your cart is empty.</p>";
+  document.getElementById("summary").innerHTML="<strong>Total: 0 EGP</strong>";return;
+ }
+ document.getElementById("items").innerHTML=ids.map(id=>{
+  const p=products[id],q=cart[id],itemTotal=p.price*q;subtotal+=itemTotal;
+  return `<div class="product"><div>${p.emoji} <strong>${p.name}</strong><br>${p.price} EGP × ${q} = ${itemTotal} EGP</div><div class="qty"><button type="button" onclick="changeQuantity('${id}',-1)">−</button><button type="button" onclick="changeQuantity('${id}',1)">+</button></div></div>`;
+ }).join("");
+ const total=subtotal+DELIVERY_FEE;
+ document.getElementById("summary").innerHTML=`<div class="summary">Subtotal: <strong>${subtotal} EGP</strong><br>🚚 Delivery: <strong>${DELIVERY_FEE} EGP</strong><hr><h2>Total: ${total} EGP</h2></div>`;
 }
 
 function showOrderForm(){
-  if(Object.keys(cart).length===0){
-    alert("Your cart is empty!");
-    return;
-  }
-  document.getElementById("orderForm").style.display="block";
+ if(!isStoreOpen()){alert("DardomaMOGS is currently closed. We're open from 2:00 PM to 2:00 AM.");return;}
+ if(Object.keys(cart).length===0){alert("Your cart is empty!");return;}
+ document.getElementById("orderForm").style.display="block";
 }
-
 
 function sendOrder(){
-  const name=document.getElementById("customerName").value.trim();
-  const contact=document.getElementById("customerContact").value.trim();
-  const payment=document.getElementById("paymentMethod").value;
-  const notes=document.getElementById("customerNotes").value.trim();
-
-  if(!name||!contact){
-    alert("Please enter your name and contact information.");
-    return;
-  }
-
-  if(!payment){
-    alert("Please choose a payment method.");
-    return;
-  }
-
-  let subtotal=0;
-  const lines=[];
-
-  Object.keys(cart).forEach(id=>{
-    const p=products[id],q=cart[id],itemTotal=p.price*q;
-    subtotal+=itemTotal;
-    lines.push(`${p.name} × ${q} = ${itemTotal} EGP`);
-  });
-
-  const total=subtotal+DELIVERY_FEE;
-
-  const orderText=
-    lines.join("\n")+
-    "\nSubtotal: "+subtotal+" EGP"+
-    "\nDelivery: "+DELIVERY_FEE+" EGP"+
-    "\nTotal: "+total+" EGP";
-
-  document.getElementById("gName").value=name;
-  document.getElementById("gContact").value=contact;
-  document.getElementById("gOrder").value=orderText;
-  document.getElementById("gNotes").value=notes;
-  document.getElementById("gPayment").value=payment;
-
-  document.getElementById("realGoogleForm").submit();
-
-  document.getElementById("result").innerHTML=`
-    <div class="success">
-      <h2>✅ Order Sent!</h2>
-      <p>Thank you, <strong>${escapeHTML(name)}</strong>!</p>
-      <p>Payment method: <strong>${escapeHTML(payment)}</strong></p>
-      <p>Total: <strong>${total} EGP</strong></p>
-      ${
-        payment==="Instapay"
-        ? "<p>🏦 InstaPay selected. The payment can be handled when the order is delivered.</p>"
-        : "<p>💵 Please have the payment ready for cash on delivery.</p>"
-      }
-    </div>`;
-
-  localStorage.removeItem("dardoma_cart");
-  cart={};
-  renderCart();
-  document.getElementById("orderForm").style.display="none";
+ if(!isStoreOpen()){alert("DardomaMOGS is currently closed. Please order between 2:00 PM and 2:00 AM.");return;}
+ const name=document.getElementById("customerName").value.trim();
+ const contact=document.getElementById("customerContact").value.trim();
+ const payment=document.getElementById("paymentMethod").value;
+ const notes=document.getElementById("customerNotes").value.trim();
+ if(!name||!contact){alert("Please enter your name and contact information.");return;}
+ if(!payment){alert("Please choose a payment method.");return;}
+ let subtotal=0;const lines=[];
+ Object.keys(cart).forEach(id=>{const p=products[id],q=cart[id],itemTotal=p.price*q;subtotal+=itemTotal;lines.push(`${p.name} × ${q} = ${itemTotal} EGP`);});
+ const total=subtotal+DELIVERY_FEE;
+ document.getElementById("gName").value=name;
+ document.getElementById("gContact").value=contact;
+ document.getElementById("gOrder").value=lines.join("\n")+"\nSubtotal: "+subtotal+" EGP\nDelivery: "+DELIVERY_FEE+" EGP\nTotal: "+total+" EGP";
+ document.getElementById("gNotes").value=notes;
+ document.getElementById("gPayment").value=payment;
+ document.getElementById("realGoogleForm").submit();
+ document.getElementById("result").innerHTML=`<div class="success"><h2>✅ Order Sent!</h2><p>Thank you, <strong>${escapeHTML(name)}</strong>!</p><p>Payment method: <strong>${escapeHTML(payment)}</strong></p><p>Total: <strong>${total} EGP</strong></p>${payment==="Instapay"?"<p>🏦 InstaPay selected. Payment can be handled when the order is delivered.</p>":"<p>💵 Please have the payment ready for cash on delivery.</p>"}</div>`;
+ localStorage.removeItem("dardoma_cart");cart={};renderCart();document.getElementById("orderForm").style.display="none";
 }
 
-function escapeHTML(text){
-  const div=document.createElement("div");
-  div.textContent=text;
-  return div.innerHTML;
+function escapeHTML(text){const div=document.createElement("div");div.textContent=text;return div.innerHTML;}
+
+const params=new URLSearchParams(window.location.search),productFromLink=params.get("product");
+if(productFromLink&&products[productFromLink]){
+ addProduct(productFromLink);
+ document.getElementById("message").innerHTML="✅ <strong>"+products[productFromLink].name+"</strong> was added to your cart!";
+ history.replaceState({},"",window.location.pathname);
 }
 
-const params=new URLSearchParams(window.location.search);
-const productFromLink=params.get("product");
-
-if(productFromLink && products[productFromLink]){
-  addProduct(productFromLink);
-  document.getElementById("message").innerHTML =
-    "✅ <strong>"+products[productFromLink].name+"</strong> was added to your cart!";
-  history.replaceState({},"",window.location.pathname);
-}
-
+updateStoreStatus();
+setInterval(updateStoreStatus,30000);
 renderCart();
 </script>
 </body>
