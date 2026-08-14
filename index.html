@@ -796,6 +796,175 @@ renderCart();
 setInterval(updateStoreStatus,30000);
 </script>
 
+<button
+  id="adminEntryButton"
+  type="button"
+  onclick="openAdminDashboard()"
+  style="
+    display: none;
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 9999;
+  "
+>
+  🔐 Admin
+</button>
+  <div
+  id="adminDashboard"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.75);
+    overflow: auto;
+    padding: 24px;
+  "
+>
+  <div
+    style="
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 18px;
+      padding: 25px;
+      color: #222;
+    "
+  >
+    <h2>🔐 DardomaMOGS Admin</h2>
 
+    <p id="adminSignedInAs"></p>
+
+    <div id="adminLoginArea">
+      <p>Admin access is restricted.</p>
+
+      <button type="button" onclick="adminGoogleSignIn()">
+        Sign in with Google
+      </button>
+
+      <p id="adminError" style="color: #b00020;"></p>
+    </div>
+
+    <div id="adminWelcome" style="display:none;">
+      <h3>✅ Admin access granted!</h3>
+      <p>You are signed in with the authorized account.</p>
+    </div>
+
+    <button type="button" onclick="closeAdminDashboard()">
+      ✕ Close
+    </button>
+  </div>
+</div>
+
+<script>
+/* ==============================
+   DARDOMAMOGS ADMIN SIGN-IN
+   ============================== */
+
+function openAdminDashboard() {
+  document.getElementById("adminDashboard").style.display = "block";
+
+  const user = dardomaAuth.currentUser;
+
+  if (user) {
+    checkAdminAccount(user);
+  }
+}
+
+function closeAdminDashboard() {
+  document.getElementById("adminDashboard").style.display = "none";
+}
+
+async function adminGoogleSignIn() {
+  document.getElementById("adminError").textContent = "";
+
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    await dardomaAuth.signInWithPopup(provider);
+
+  } catch (error) {
+    console.error(error);
+
+    document.getElementById("adminError").textContent =
+      error.message || "Google sign-in failed.";
+  }
+}
+
+function checkAdminAccount(user) {
+
+  const allowedEmail =
+    DARDOMA_ADMIN_EMAIL.trim().toLowerCase();
+
+  const signedInEmail =
+    (user.email || "").trim().toLowerCase();
+
+  if (
+    !allowedEmail ||
+    allowedEmail === "your_brother_email" ||
+    signedInEmail !== allowedEmail
+  ) {
+
+    document.getElementById("adminError").textContent =
+      "❌ This Google account is not authorized.";
+
+    document.getElementById("adminWelcome").style.display =
+      "none";
+
+    return;
+  }
+
+  document.getElementById("adminError").textContent = "";
+
+  document.getElementById("adminLoginArea").style.display =
+    "none";
+
+  document.getElementById("adminWelcome").style.display =
+    "block";
+
+  document.getElementById("adminSignedInAs").textContent =
+    "Signed in as: " + user.email;
+}
+
+
+/*
+  Watch Firebase authentication.
+*/
+dardomaAuth.onAuthStateChanged(function(user) {
+
+  const adminButton =
+    document.getElementById("adminEntryButton");
+
+  if (!adminButton) return;
+
+  const allowedEmail =
+    DARDOMA_ADMIN_EMAIL.trim().toLowerCase();
+
+  const signedInEmail =
+    user && user.email
+      ? user.email.trim().toLowerCase()
+      : "";
+
+  /*
+    Only show the button when the authorized
+    Google account is signed in.
+  */
+  if (
+    user &&
+    allowedEmail &&
+    allowedEmail !== "your_brother_email" &&
+    signedInEmail === allowedEmail
+  ) {
+
+    adminButton.style.display = "block";
+
+  } else {
+
+    adminButton.style.display = "none";
+  }
+
+});
+</script>
 </body>
 </html>
