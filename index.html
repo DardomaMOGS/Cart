@@ -950,20 +950,11 @@ dardomaAuth.onAuthStateChanged(function(user) {
     Only show the button when the authorized
     Google account is signed in.
   */
-  if (
-    user &&
-    allowedEmail &&
-    allowedEmail !== "your_brother_email" &&
-    signedInEmail === allowedEmail
-  ) {
-
-    adminButton.style.display = "block";
-
-  } else {
-
-    adminButton.style.display = "none";
-  }
-
+ if (user) {
+  adminButton.style.display = "block";
+} else {
+  adminButton.style.display = "none";
+}
 });
 </script>
 </body>
