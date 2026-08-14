@@ -962,6 +962,25 @@ dardomaAuth.onAuthStateChanged(function(user) {
   adminButton.style.display = "none";
 }
 });
+  <script>
+function openSystemPanel(panelId) {
+  const panels = document.querySelectorAll(".system-panel");
+
+  panels.forEach(function(panel) {
+    panel.classList.remove("active");
+  });
+
+  const selectedPanel = document.getElementById(panelId);
+
+  if (selectedPanel) {
+    selectedPanel.classList.add("active");
+    selectedPanel.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+}
+</script>
 </script>
 </body>
 </html>
