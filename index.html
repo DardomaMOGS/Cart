@@ -209,10 +209,12 @@ input,select,textarea{
 <div class="card">
   <h2>📦 Order Tools</h2>
   <div class="system-nav">
-  <button type="button" onclick="openSystemPanel('customerTrackingPanel')">
-    🔎 Track Order
-  </button>
-
+ <button
+  type="button"
+  onclick="document.getElementById('adminPanel').classList.add('active')"
+>
+  🔐 Admin
+</button>
   <button type="button" onclick="openSystemPanel('adminPanel')">
     🔐 Admin
   </button>
