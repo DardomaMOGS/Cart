@@ -116,36 +116,31 @@ input,select,textarea{
   button{min-height:44px}
 }
 
-.admin-only{display:none}
-#adminPanel{display:none}
-#trackingPanel{display:none}
-.admin-login{background:#f7f9ff;border:1px solid #d9e0f2;border-radius:14px;padding:18px;margin-top:18px}
-.admin-order{border:1px solid #ddd;border-radius:14px;padding:16px;margin:12px 0}
-.admin-row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.admin-status{padding:7px 10px;border-radius:8px;background:#eef1f7;font-weight:bold}
-.admin-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+/* ===== Firebase order system ===== */
+.system-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+.system-nav button{background:#17233c}
+.system-panel{display:none}
+.system-panel.active{display:block}
+.track-box,.admin-box{background:#f7f9ff;border:1px solid #d9e0f2;border-radius:14px;padding:18px;margin-top:15px}
+.order-card{border:1px solid #ddd;border-radius:14px;padding:16px;margin:12px 0;background:#fff}
+.admin-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.admin-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.admin-actions button{font-size:13px}
+.status-pill{display:inline-block;padding:7px 10px;border-radius:9px;background:#eef1f7;font-weight:bold}
+.steps{display:flex;justify-content:space-between;gap:8px;margin-top:15px}
+.step{flex:1;text-align:center;padding:10px 4px;border-radius:10px;background:#eee;color:#777;font-size:13px}
+.step.active{background:#dff2e1;color:#176b2c;font-weight:bold}
+.notice-nearby{background:#e7f7e8;color:#176b2c;border-radius:12px;padding:14px;margin-top:14px;font-weight:bold}
+.map-box{height:330px;border-radius:14px;margin-top:14px;overflow:hidden}
 .location-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#deliveryMap{height:330px;border-radius:14px;margin-top:14px}
-.notice-nearby{background:#e7f7e8;color:#176b2c;border-radius:12px;padding:15px;font-weight:bold;margin-top:14px}
 .small-muted{font-size:13px;color:#687080}
-@media(max-width:600px){
-  .location-grid{grid-template-columns:1fr}
-  .admin-buttons button{width:100%}
-}
+@media(max-width:600px){.location-grid{grid-template-columns:1fr}.admin-actions button{width:100%}.steps{flex-direction:column}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 
 <body>
 <div class="container">
-
-
-<div class="card">
-  <strong>🔎 Order tracking:</strong>
-  <a href="#track">Track an existing order</a>
-  <span class="small-muted"> · </span>
-  <a href="#admin">Admin</a>
-</div>
 
 <div class="brand">
   <h1>🥭 DardomaMOGS 🥭</h1>
@@ -208,6 +203,44 @@ input,select,textarea{
   <div id="result"></div>
 </div>
 
+</div>
+
+
+<div class="card">
+  <h2>📦 Order Tools</h2>
+  <div class="system-nav">
+    <button type="button" onclick="openSystemPanel('customerTrackingPanel')">🔎 Track Order</button>
+  </div>
+
+  <div id="customerTrackingPanel" class="system-panel">
+    <div class="track-box">
+      <h3>🔎 Track Your Order</h3>
+      <p class="small-muted">Use the tracking code from your order confirmation.</p>
+      <input id="trackingTokenInput" type="text" placeholder="Enter tracking code">
+      <button type="button" onclick="trackCustomerOrder()">Track Order</button>
+      <div id="customerTrackingResult"></div>
+    </div>
+  </div>
+
+  <!-- The admin dashboard is intentionally NOT linked from the customer UI.
+       Open this same page with #admin when you are the admin. -->
+  <div id="adminPanel" class="system-panel">
+    <div class="admin-box">
+      <h3>🔐 DardomaMOGS Admin</h3>
+      <div id="adminSignedOut">
+        <p>Admin access is protected by Google sign-in.</p>
+        <button type="button" onclick="adminGoogleSignIn()">Sign in with Google</button>
+        <p id="adminAuthMessage" class="small-muted"></p>
+      </div>
+      <div id="adminSignedIn" style="display:none">
+        <div class="admin-row">
+          <strong id="adminIdentity"></strong>
+          <button type="button" class="danger" onclick="adminGoogleSignOut()">Sign out</button>
+        </div>
+        <div id="adminOrders"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <iframe name="googleFormFrame" style="display:none"></iframe>
@@ -584,129 +617,117 @@ function createOrderNumber(){
     Math.floor(1000 + Math.random() * 9000);
 }
 
-function confirmAndSend(){
+async function confirmAndSend(){
   if(!isStoreOpen()){
-    alert(
-      "DardomaMOGS is currently closed. " +
-      "Please order between 2:00 PM and 2:00 AM."
-    );
+    alert("DardomaMOGS is currently closed. Please order between 2:00 PM and 2:00 AM.");
     return;
   }
 
-  const name =
-    document.getElementById("customerName").value.trim();
-
-  const contact =
-    document.getElementById("customerContact").value.trim();
-
-  const payment =
-    document.getElementById("paymentMethod").value;
-
-  const notes =
-    document.getElementById("customerNotes").value.trim();
+  const name=document.getElementById("customerName").value.trim();
+  const contact=document.getElementById("customerContact").value.trim();
+  const payment=document.getElementById("paymentMethod").value;
+  const notes=document.getElementById("customerNotes").value.trim();
 
   if(!name || !contact || !payment){
     alert("Please complete the order details first.");
     return;
   }
+  if(!Object.keys(cart).length){
+    alert("Your cart is empty.");
+    return;
+  }
 
-  const totals = getOrderTotals();
-  const orderNumber = createOrderNumber();
+  const totals=getOrderTotals();
+  const orderNumber=createOrderNumber();
+  const trackingToken=createTrackingToken();
+  const trackingId=trackingToken;
 
-  const orderText =
-    "Order Number: " + orderNumber + "\n" +
-    totals.lines.map(item =>
-      item.product.name +
-      " × " +
-      item.quantity +
-      " = " +
-      item.itemTotal +
-      " EGP"
-    ).join("\n") +
-    "\nSubtotal: " + totals.subtotal + " EGP" +
-    "\nDelivery: " + totals.delivery + " EGP" +
-    "\nTotal: " + totals.total + " EGP";
+  const orderText=
+    "Order Number: "+orderNumber+"\n"+
+    totals.lines.map(item=>item.product.name+" × "+item.quantity+" = "+item.itemTotal+" EGP").join("\n")+
+    "\nSubtotal: "+totals.subtotal+" EGP"+
+    "\nDelivery: "+totals.delivery+" EGP"+
+    "\nTotal: "+totals.total+" EGP";
 
-  document.getElementById("gName").value = name;
-  document.getElementById("gContact").value = contact;
-  document.getElementById("gOrder").value = orderText;
-  document.getElementById("gNotes").value = notes;
-  document.getElementById("gPayment").value = payment;
+  const orderData={
+    number:orderNumber,
+    name:name,
+    contact:contact,
+    items:orderText,
+    notes:notes,
+    total:Number(totals.total),
+    payment:payment,
+    status:"received",
+    trackingToken:trackingToken,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
 
-  document.getElementById("realGoogleForm").submit();
-
-  document.getElementById("result").innerHTML = `
-    <div class="success">
-
-      <h2>✅ Order Sent!</h2>
-
-      <p>
-        <strong>Order #${orderNumber}</strong>
-      </p>
-
-      <p>
-        Thank you,
-        <strong>${escapeHTML(name)}</strong>!
-      </p>
-
-      <p>
-        Payment:
-        <strong>${escapeHTML(payment)}</strong>
-      </p>
-
-      <p>
-        Total:
-        <strong>${totals.total} EGP</strong>
-      </p>
-
-      <div class="order-status">
-
-        <strong>📦 Order Status</strong>
-
-        <div class="steps">
-
-          <div class="step active">
-            🟡<br>Received
-          </div>
-
-          <div class="step">
-            🔵<br>Preparing
-          </div>
-
-          <div class="step">
-            🚚<br>Out for delivery
-          </div>
-
-          <div class="step">
-            🟢<br>Delivered
-          </div>
-
-        </div>
-
-      </div>
-
-      ${
-        payment === "Instapay"
-        ? "<p>🏦 InstaPay selected. Payment can be handled when the order is delivered.</p>"
-        : "<p>💵 Please have the payment ready for cash on delivery.</p>"
-      }
-
-    </div>
-  `;
-
-  cart = {};
-  localStorage.removeItem("dardoma_cart");
-
-  renderCart();
-
-  document.getElementById("orderForm").style.display = "none";
-  document.getElementById("reviewSection").style.display = "none";
-
-  document.getElementById("result")
-    .scrollIntoView({
-      behavior:"smooth",
-      block:"start"
+  try{
+    /*
+      orderRequests contains customer information and is admin-readable only.
+      tracking contains ONLY public tracking information.
+    */
+    await dardomaDb.collection("orderRequests").add(orderData);
+    await dardomaDb.collection("tracking").doc(trackingId).set({
+      token:trackingToken,
+      number:orderNumber,
+      status:"received",
+      lat:null,
+      lng:null
     });
+
+    /* Keep the existing Google Form workflow too. */
+    document.getElementById("gName").value=name;
+    document.getElementById("gContact").value=contact;
+    document.getElementById("gOrder").value=orderText;
+    document.getElementById("gNotes").value=notes;
+    document.getElementById("gPayment").value=payment;
+    document.getElementById("realGoogleForm").submit();
+
+    showOrderConfirmation(orderNumber,trackingToken);
+
+    cart={};
+    localStorage.removeItem("dardoma_cart");
+    renderCart();
+
+  }catch(error){
+    console.error(error);
+    alert("We couldn't save the order yet. Please try again.\n\n"+error.message);
+  }
+}
+
+function createTrackingToken(){
+  const bytes=new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function showOrderConfirmation(orderNumber,trackingToken){
+  const trackingUrl=window.location.href.split("#")[0]+"#track="+encodeURIComponent(trackingToken);
+  const payment=document.getElementById("paymentMethod").value;
+  document.getElementById("result").innerHTML=`
+    <div class="success">
+      <h2>✅ Order Sent!</h2>
+      <p><strong>Order #${escapeHTML(orderNumber)}</strong></p>
+      <p>Your private tracking code:</p>
+      <p><strong>${escapeHTML(trackingToken)}</strong></p>
+      <p class="small-muted">Keep this code private. Anyone with it can view this order's delivery status.</p>
+      <button type="button" onclick="openCustomerTracking('${escapeHTML(trackingToken)}')">🔎 Track This Order</button>
+      <p class="small-muted" style="word-break:break-all;margin-top:10px">${escapeHTML(trackingUrl)}</p>
+      <div class="order-status">
+        <strong>📦 Order Status</strong>
+        <div class="steps">
+          <div class="step active">🟡<br>Received</div>
+          <div class="step">🔵<br>Preparing</div>
+          <div class="step">🚚<br>Out for delivery</div>
+          <div class="step">🟢<br>Delivered</div>
+        </div>
+      </div>
+      ${payment==="Instapay"?"<p>🏦 InstaPay selected. Payment can be handled when the order is delivered.</p>":"<p>💵 Please have the payment ready for cash on delivery.</p>"}
+    </div>`;
+  document.getElementById("orderForm").style.display="none";
+  document.getElementById("reviewSection").style.display="none";
+  document.getElementById("result").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 function escapeHTML(text){
@@ -753,290 +774,202 @@ setInterval(updateStoreStatus,30000);
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-/*
-  DARDOMAMOGS LIVE ORDER SYSTEM
-  --------------------------------
-  1. Replace ADMIN_EMAIL with YOUR Google account.
-  2. Replace firebaseConfig with your Firebase web config.
-  3. Publish the matching Firestore security rules.
-  4. Your Google Form can remain for receiving orders; Firebase needs to
-     receive the order too for live status tracking.
-*/
-
-const ADMIN_EMAIL = "YOUR_GOOGLE_EMAIL@example.com";
-
-const firebaseConfig = {
-  apiKey: "PASTE_YOUR_FIREBASE_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+/* ========================= Firebase order system ========================= */
+const DARDOMA_ADMIN_EMAIL="YOUR_BROTHER_EMAIL";
+const firebaseConfig={
+  apiKey:"AIzaSyBFGaDTOjaFokQi1H_ia_tl6huMRXMU08",
+  authDomain:"dardomamogs.firebaseapp.com",
+  projectId:"dardomamogs",
+  storageBucket:"dardomamogs.firebasestorage.app",
+  messagingSenderId:"127475908076",
+  appId:"1:127475908076:web:0c5eab2941ae87265014c9",
+  measurementId:"G-67XLGPBFNT"
 };
 
 firebase.initializeApp(firebaseConfig);
-const liveAuth = firebase.auth();
-const liveDb = firebase.firestore();
+const dardomaAuth=firebase.auth();
+const dardomaDb=firebase.firestore();
+let adminOrdersUnsubscribe=null;
+let customerTrackingUnsubscribe=null;
+let customerMap=null;
+let customerMarker=null;
 
-let liveOrderUnsubscribe = null;
-let adminOrdersUnsubscribe = null;
-let deliveryMap = null;
-let deliveryMarker = null;
-
-/* Use the same index.html:
-   Normal URL = your customer/cart site
-   index.html#admin = private admin area
-   index.html#track = customer tracking area
-*/
-function showSpecialPanel(){
-  const hash = window.location.hash.toLowerCase();
-  document.getElementById("adminPanel").style.display =
-    hash === "#admin" ? "block" : "none";
-  document.getElementById("trackingPanel").style.display =
-    hash === "#track" ? "block" : "none";
+function openSystemPanel(id){
+  document.getElementById("customerTrackingPanel").classList.remove("active");
+  document.getElementById("adminPanel").classList.remove("active");
+  document.getElementById(id).classList.add("active");
+  document.getElementById(id).scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 
-window.addEventListener("hashchange", showSpecialPanel);
-showSpecialPanel();
+function openCustomerTracking(token){
+  openSystemPanel("customerTrackingPanel");
+  document.getElementById("trackingTokenInput").value=token;
+  trackCustomerOrder();
+}
 
-function trackLiveOrder(){
-  const number = document.getElementById("trackOrderNumber").value.trim().toUpperCase();
-  const result = document.getElementById("trackingResult");
+function escapeForHTML(value){
+  const div=document.createElement("div");
+  div.textContent=String(value??"");
+  return div.innerHTML;
+}
 
-  if(!number){
-    result.innerHTML = '<div class="notice-nearby">Please enter your order number.</div>';
-    return;
-  }
+function trackCustomerOrder(){
+  const token=document.getElementById("trackingTokenInput").value.trim().toLowerCase();
+  const result=document.getElementById("customerTrackingResult");
+  if(!token){result.innerHTML="<p>Please enter your tracking code.</p>";return;}
 
-  if(liveOrderUnsubscribe) liveOrderUnsubscribe();
+  if(customerTrackingUnsubscribe) customerTrackingUnsubscribe();
 
-  liveOrderUnsubscribe = liveDb.collection("orders")
-    .where("number","==",number)
-    .limit(1)
-    .onSnapshot(snapshot => {
-      if(snapshot.empty){
-        result.innerHTML = '<div class="notice-nearby">Order not found.</div>';
-        return;
-      }
-
-      renderLiveCustomerOrder(snapshot.docs[0].data());
-    }, () => {
-      result.innerHTML = '<div class="notice-nearby">Could not load the order yet.</div>';
+  customerTrackingUnsubscribe=dardomaDb.collection("tracking").doc(token)
+    .onSnapshot(doc=>{
+      if(!doc.exists){result.innerHTML="<p>Tracking code not found.</p>";return;}
+      renderCustomerTracking(doc.data());
+    },error=>{
+      console.error(error);
+      result.innerHTML="<p>Tracking is unavailable right now.</p>";
     });
 }
 
-function renderLiveCustomerOrder(order){
-  const labels = {
-    received: "🟡 Order received",
-    preparing: "🔵 Your order is being prepared",
-    delivery: "🚚 Your order is out for delivery",
-    delivered: "🟢 Order delivered"
-  };
-
-  const step = {
-    received: 1,
-    preparing: 2,
-    delivery: 3,
-    delivered: 4
-  }[order.status] || 1;
-
-  let html = `
-    <div class="order-status">
-      <strong>Order #${escapeHTML(String(order.number))}</strong>
-      <div class="status open" style="margin-bottom:10px">
-        ${labels[order.status] || labels.received}
-      </div>
+function renderCustomerTracking(order){
+  const labels={received:"🟡 Received",preparing:"🔵 Preparing",delivery:"🚚 Out for delivery",delivered:"🟢 Delivered"};
+  const active={received:1,preparing:2,delivery:3,delivered:4}[order.status]||1;
+  const result=document.getElementById("customerTrackingResult");
+  let html=`
+    <div class="track-box">
+      <h3>Order #${escapeForHTML(order.number)}</h3>
+      <div class="status-pill">${labels[order.status]||labels.received}</div>
       <div class="steps">
-        ${["🟡<br>Received","🔵<br>Preparing","🚚<br>Out for delivery","🟢<br>Delivered"]
-          .map((x,i)=>`<div class="step ${i < step ? "active" : ""}">${x}</div>`).join("")}
-      </div>
-  `;
+        <div class="step ${active>=1?'active':''}">🟡<br>Received</div>
+        <div class="step ${active>=2?'active':''}">🔵<br>Preparing</div>
+        <div class="step ${active>=3?'active':''}">🚚<br>Out for delivery</div>
+        <div class="step ${active>=4?'active':''}">🟢<br>Delivered</div>
+      </div>`;
 
-  if(order.status === "delivery"){
-    html += `
-      <div class="notice-nearby">
-        🔔 Your Dardoma order is on the way!
-      </div>
-      <h3>🗺️ Delivery Map</h3>
-      <p class="small-muted">The map appears when your order is out for delivery.</p>
-      <div id="deliveryMap"></div>
-    `;
+  if(order.status==="delivery"){
+    html+=`<div class="notice-nearby">🔔 Your Dardoma order is on the way!</div>
+      <div id="customerDeliveryMap" class="map-box"></div>`;
   }
+  html+=`</div>`;
+  result.innerHTML=html;
 
-  html += `</div>`;
-  document.getElementById("trackingResult").innerHTML = html;
-
-  if(order.status === "delivery"){
-    showDeliveryMap(order.lat, order.lng);
+  if(order.status==="delivery" && typeof order.lat==="number" && typeof order.lng==="number"){
+    setTimeout(()=>showCustomerMap(order.lat,order.lng),50);
   }
 }
 
-function showDeliveryMap(lat,lng){
-  const mapElement = document.getElementById("deliveryMap");
-  if(!mapElement) return;
-
-  if(typeof lat !== "number" || typeof lng !== "number"){
-    mapElement.innerHTML = "<p class='small-muted'>Delivery location is being updated.</p>";
-    return;
-  }
-
-  if(!deliveryMap){
-    deliveryMap = L.map("deliveryMap").setView([lat,lng],15);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-      attribution:"© OpenStreetMap contributors"
-    }).addTo(deliveryMap);
-    deliveryMarker = L.marker([lat,lng]).addTo(deliveryMap);
+function showCustomerMap(lat,lng){
+  const el=document.getElementById("customerDeliveryMap");
+  if(!el)return;
+  if(!customerMap){
+    customerMap=L.map(el).setView([lat,lng],15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors"}).addTo(customerMap);
+    customerMarker=L.marker([lat,lng]).addTo(customerMap);
   }else{
-    deliveryMap.setView([lat,lng],15);
-    deliveryMarker.setLatLng([lat,lng]);
+    customerMap.setView([lat,lng],15);
+    customerMarker.setLatLng([lat,lng]);
   }
-
-  setTimeout(()=>deliveryMap.invalidateSize(),100);
+  setTimeout(()=>customerMap.invalidateSize(),100);
 }
 
-/* ---------- PRIVATE ADMIN ---------- */
-
-liveAuth.onAuthStateChanged(user => {
-  if(window.location.hash.toLowerCase() !== "#admin") return;
-
-  const loginBox = document.getElementById("adminLogin");
-  const content = document.getElementById("adminContent");
-  const message = document.getElementById("adminLoginMessage");
-
-  if(user && user.email &&
-     user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()){
-
-    loginBox.style.display = "none";
-    content.style.display = "block";
-    message.textContent = "";
-    loadAdminOrders();
-
-  }else{
-    content.style.display = "none";
-    loginBox.style.display = "block";
-
-    if(user){
-      message.textContent =
-        "This Google account is not authorized for DardomaMOGS.";
-      liveAuth.signOut();
-    }
-  }
-});
-
-function adminLogin(){
-  const provider = new firebase.auth.GoogleAuthProvider();
-
-  liveAuth.signInWithPopup(provider).catch(error=>{
-    document.getElementById("adminLoginMessage").textContent =
-      error.message;
+function adminGoogleSignIn(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  dardomaAuth.signInWithPopup(provider).catch(error=>{
+    document.getElementById("adminAuthMessage").textContent=error.message;
   });
 }
+function adminGoogleSignOut(){dardomaAuth.signOut();}
 
-function adminLogout(){
-  liveAuth.signOut();
-}
-
-function loadAdminOrders(){
-  if(adminOrdersUnsubscribe) adminOrdersUnsubscribe();
-
-  adminOrdersUnsubscribe = liveDb.collection("orders")
-    .orderBy("createdAt","desc")
-    .onSnapshot(snapshot=>{
-      const box = document.getElementById("adminOrders");
-
-      if(snapshot.empty){
-        box.innerHTML = "<p class='small-muted'>No orders yet.</p>";
-        return;
-      }
-
-      box.innerHTML = snapshot.docs
-        .map(doc => adminOrderHTML(doc.id,doc.data()))
-        .join("");
-    },()=>{
-      document.getElementById("adminOrders").innerHTML =
-        "<p class='small-muted'>Could not load orders.</p>";
-    });
+function renderAdminOrders(snapshot){
+  const box=document.getElementById("adminOrders");
+  if(snapshot.empty){box.innerHTML="<p class='small-muted'>No orders yet.</p>";return;}
+  box.innerHTML=snapshot.docs.map(doc=>adminOrderHTML(doc.id,doc.data())).join("");
 }
 
 function adminOrderHTML(id,order){
-  const labels = {
-    received:"🟡 Received",
-    preparing:"🔵 Preparing",
-    delivery:"🚚 Out for delivery",
-    delivered:"🟢 Delivered"
-  };
-
-  return `
-    <div class="admin-order">
-      <div class="admin-row">
-        <strong>🧾 ${escapeHTML(String(order.number || ""))}</strong>
-        <span class="admin-status">${labels[order.status] || labels.received}</span>
-      </div>
-
-      <p><strong>👤 Customer:</strong> ${escapeHTML(String(order.name || ""))}</p>
-      <p><strong>📱 Contact:</strong> ${escapeHTML(String(order.contact || ""))}</p>
-      <p><strong>💳 Payment:</strong> ${escapeHTML(String(order.payment || ""))}</p>
-      <p><strong>🛍️ Items:</strong><br>${escapeHTML(String(order.items || "")).replace(/\\n/g,"<br>")}</p>
-      <p><strong>💰 Total:</strong> ${escapeHTML(String(order.total || 0))} EGP</p>
-
-      <div class="location-grid">
-        <input id="lat-${id}" placeholder="Delivery latitude"
-               value="${typeof order.lat === "number" ? order.lat : ""}">
-        <input id="lng-${id}" placeholder="Delivery longitude"
-               value="${typeof order.lng === "number" ? order.lng : ""}">
-      </div>
-
-      <div class="admin-buttons">
-        <button onclick="setAdminStatus('${id}','received')">🟡 Received</button>
-        <button onclick="setAdminStatus('${id}','preparing')">🔵 Preparing</button>
-        <button onclick="setDeliveryStatus('${id}')">🚚 Out for delivery</button>
-        <button onclick="setAdminStatus('${id}','delivered')">🟢 Delivered</button>
-      </div>
+  const labels={received:"🟡 Received",preparing:"🔵 Preparing",delivery:"🚚 Out for delivery",delivered:"🟢 Delivered"};
+  return `<div class="order-card">
+    <div class="admin-row"><strong>🧾 ${escapeForHTML(order.number)}</strong><span class="status-pill">${labels[order.status]||labels.received}</span></div>
+    <p><strong>👤 Customer:</strong> ${escapeForHTML(order.name)}</p>
+    <p><strong>📱 Contact:</strong> ${escapeForHTML(order.contact)}</p>
+    <p><strong>💳 Payment:</strong> ${escapeForHTML(order.payment)}</p>
+    <p><strong>💰 Total:</strong> ${escapeForHTML(order.total)} EGP</p>
+    <p><strong>🛍️ Items:</strong><br>${escapeForHTML(order.items).replace(/\n/g,"<br>")}</p>
+    <div class="location-grid">
+      <input id="lat-${id}" type="number" step="any" placeholder="Delivery latitude" value="${typeof order.lat==='number'?order.lat:''}">
+      <input id="lng-${id}" type="number" step="any" placeholder="Delivery longitude" value="${typeof order.lng==='number'?order.lng:''}">
     </div>
-  `;
+    <div class="admin-actions">
+      <button type="button" onclick="setOrderStatus('${id}','received')">🟡 Received</button>
+      <button type="button" onclick="setOrderStatus('${id}','preparing')">🔵 Preparing</button>
+      <button type="button" onclick="setOrderDelivery('${id}')">🚚 Out for delivery</button>
+      <button type="button" onclick="setOrderStatus('${id}','delivered')">🟢 Delivered</button>
+    </div>
+  </div>`;
 }
 
-function setAdminStatus(id,status){
-  liveDb.collection("orders").doc(id).update({
-    status: status
-  });
+async function setOrderStatus(id,status){
+  try{
+    const ref=dardomaDb.collection("orderRequests").doc(id);
+    const snap=await ref.get();
+    if(!snap.exists)return;
+    const order=snap.data();
+    await ref.update({status:status});
+    await dardomaDb.collection("tracking").doc(order.trackingToken).update({status:status});
+  }catch(error){alert("Couldn't update the order: "+error.message);}
 }
 
-function setDeliveryStatus(id){
-  const lat = Number(document.getElementById("lat-"+id).value);
-  const lng = Number(document.getElementById("lng-"+id).value);
+async function setOrderDelivery(id){
+  const lat=Number(document.getElementById("lat-"+id).value);
+  const lng=Number(document.getElementById("lng-"+id).value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)){alert("Enter a valid delivery latitude and longitude first.");return;}
+  try{
+    const ref=dardomaDb.collection("orderRequests").doc(id);
+    const snap=await ref.get();
+    if(!snap.exists)return;
+    const order=snap.data();
+    await ref.update({status:"delivery",lat:lat,lng:lng});
+    await dardomaDb.collection("tracking").doc(order.trackingToken).update({status:"delivery",lat:lat,lng:lng});
+  }catch(error){alert("Couldn't update delivery status: "+error.message);}
+}
 
-  if(!Number.isFinite(lat) || !Number.isFinite(lng)){
-    alert("Enter a valid delivery latitude and longitude first.");
-    return;
+dardomaAuth.onAuthStateChanged(user=>{
+  const adminMode=window.location.hash.toLowerCase()==="#admin";
+  if(!adminMode)return;
+  openSystemPanel("adminPanel");
+  const signedOut=document.getElementById("adminSignedOut");
+  const signedIn=document.getElementById("adminSignedIn");
+  const msg=document.getElementById("adminAuthMessage");
+  if(user && user.email && user.email.toLowerCase()===DARDOMA_ADMIN_EMAIL.toLowerCase()){
+    signedOut.style.display="none";
+    signedIn.style.display="block";
+    document.getElementById("adminIdentity").textContent="Signed in as "+user.email;
+    if(adminOrdersUnsubscribe)adminOrdersUnsubscribe();
+    adminOrdersUnsubscribe=dardomaDb.collection("orderRequests").orderBy("createdAt","desc").onSnapshot(renderAdminOrders,error=>{
+      document.getElementById("adminOrders").innerHTML="<p>Could not load orders: "+escapeForHTML(error.message)+"</p>";
+    });
+  }else{
+    if(user)dardomaAuth.signOut();
+    signedOut.style.display="block";
+    signedIn.style.display="none";
+    if(user)msg.textContent="This Google account is not authorized as the DardomaMOGS admin.";
   }
+});
 
-  liveDb.collection("orders").doc(id).update({
-    status: "delivery",
-    lat: lat,
-    lng: lng
-  });
-}
-
-/* Request browser notification permission only when the customer
-   explicitly starts tracking. */
-function requestCustomerNotificationPermission(){
-  if("Notification" in window &&
-     Notification.permission === "default"){
-    Notification.requestPermission();
+function handleSystemHash(){
+  const hash=window.location.hash;
+  if(hash.toLowerCase()==="#admin"){
+    openSystemPanel("adminPanel");
+  }else if(hash.toLowerCase().startsWith("#track=")){
+    openSystemPanel("customerTrackingPanel");
+    const token=decodeURIComponent(hash.substring(7));
+    document.getElementById("trackingTokenInput").value=token;
+    trackCustomerOrder();
   }
 }
+window.addEventListener("hashchange",handleSystemHash);
+setTimeout(handleSystemHash,0);
 
-const oldTrackButton = document.querySelector(
-  '#trackingPanel button[onclick="trackLiveOrder()"]'
-);
-if(oldTrackButton){
-  oldTrackButton.addEventListener("click",
-    requestCustomerNotificationPermission);
-}
 </script>
 
 </body>
