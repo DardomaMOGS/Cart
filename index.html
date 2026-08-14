@@ -115,11 +115,37 @@ input,select,textarea{
   .steps{grid-template-columns:1fr 1fr}
   button{min-height:44px}
 }
+
+.admin-only{display:none}
+#adminPanel{display:none}
+#trackingPanel{display:none}
+.admin-login{background:#f7f9ff;border:1px solid #d9e0f2;border-radius:14px;padding:18px;margin-top:18px}
+.admin-order{border:1px solid #ddd;border-radius:14px;padding:16px;margin:12px 0}
+.admin-row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.admin-status{padding:7px 10px;border-radius:8px;background:#eef1f7;font-weight:bold}
+.admin-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.location-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#deliveryMap{height:330px;border-radius:14px;margin-top:14px}
+.notice-nearby{background:#e7f7e8;color:#176b2c;border-radius:12px;padding:15px;font-weight:bold;margin-top:14px}
+.small-muted{font-size:13px;color:#687080}
+@media(max-width:600px){
+  .location-grid{grid-template-columns:1fr}
+  .admin-buttons button{width:100%}
+}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 
 <body>
 <div class="container">
+
+
+<div class="card">
+  <strong>🔎 Order tracking:</strong>
+  <a href="#track">Track an existing order</a>
+  <span class="small-muted"> · </span>
+  <a href="#admin">Admin</a>
+</div>
 
 <div class="brand">
   <h1>🥭 DardomaMOGS 🥭</h1>
@@ -721,6 +747,296 @@ updateStoreStatus();
 renderCart();
 
 setInterval(updateStoreStatus,30000);
+</script>
+
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/*
+  DARDOMAMOGS LIVE ORDER SYSTEM
+  --------------------------------
+  1. Replace ADMIN_EMAIL with YOUR Google account.
+  2. Replace firebaseConfig with your Firebase web config.
+  3. Publish the matching Firestore security rules.
+  4. Your Google Form can remain for receiving orders; Firebase needs to
+     receive the order too for live status tracking.
+*/
+
+const ADMIN_EMAIL = "YOUR_GOOGLE_EMAIL@example.com";
+
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_FIREBASE_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  projectId: "PASTE_YOUR_PROJECT_ID",
+  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId: "PASTE_YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const liveAuth = firebase.auth();
+const liveDb = firebase.firestore();
+
+let liveOrderUnsubscribe = null;
+let adminOrdersUnsubscribe = null;
+let deliveryMap = null;
+let deliveryMarker = null;
+
+/* Use the same index.html:
+   Normal URL = your customer/cart site
+   index.html#admin = private admin area
+   index.html#track = customer tracking area
+*/
+function showSpecialPanel(){
+  const hash = window.location.hash.toLowerCase();
+  document.getElementById("adminPanel").style.display =
+    hash === "#admin" ? "block" : "none";
+  document.getElementById("trackingPanel").style.display =
+    hash === "#track" ? "block" : "none";
+}
+
+window.addEventListener("hashchange", showSpecialPanel);
+showSpecialPanel();
+
+function trackLiveOrder(){
+  const number = document.getElementById("trackOrderNumber").value.trim().toUpperCase();
+  const result = document.getElementById("trackingResult");
+
+  if(!number){
+    result.innerHTML = '<div class="notice-nearby">Please enter your order number.</div>';
+    return;
+  }
+
+  if(liveOrderUnsubscribe) liveOrderUnsubscribe();
+
+  liveOrderUnsubscribe = liveDb.collection("orders")
+    .where("number","==",number)
+    .limit(1)
+    .onSnapshot(snapshot => {
+      if(snapshot.empty){
+        result.innerHTML = '<div class="notice-nearby">Order not found.</div>';
+        return;
+      }
+
+      renderLiveCustomerOrder(snapshot.docs[0].data());
+    }, () => {
+      result.innerHTML = '<div class="notice-nearby">Could not load the order yet.</div>';
+    });
+}
+
+function renderLiveCustomerOrder(order){
+  const labels = {
+    received: "🟡 Order received",
+    preparing: "🔵 Your order is being prepared",
+    delivery: "🚚 Your order is out for delivery",
+    delivered: "🟢 Order delivered"
+  };
+
+  const step = {
+    received: 1,
+    preparing: 2,
+    delivery: 3,
+    delivered: 4
+  }[order.status] || 1;
+
+  let html = `
+    <div class="order-status">
+      <strong>Order #${escapeHTML(String(order.number))}</strong>
+      <div class="status open" style="margin-bottom:10px">
+        ${labels[order.status] || labels.received}
+      </div>
+      <div class="steps">
+        ${["🟡<br>Received","🔵<br>Preparing","🚚<br>Out for delivery","🟢<br>Delivered"]
+          .map((x,i)=>`<div class="step ${i < step ? "active" : ""}">${x}</div>`).join("")}
+      </div>
+  `;
+
+  if(order.status === "delivery"){
+    html += `
+      <div class="notice-nearby">
+        🔔 Your Dardoma order is on the way!
+      </div>
+      <h3>🗺️ Delivery Map</h3>
+      <p class="small-muted">The map appears when your order is out for delivery.</p>
+      <div id="deliveryMap"></div>
+    `;
+  }
+
+  html += `</div>`;
+  document.getElementById("trackingResult").innerHTML = html;
+
+  if(order.status === "delivery"){
+    showDeliveryMap(order.lat, order.lng);
+  }
+}
+
+function showDeliveryMap(lat,lng){
+  const mapElement = document.getElementById("deliveryMap");
+  if(!mapElement) return;
+
+  if(typeof lat !== "number" || typeof lng !== "number"){
+    mapElement.innerHTML = "<p class='small-muted'>Delivery location is being updated.</p>";
+    return;
+  }
+
+  if(!deliveryMap){
+    deliveryMap = L.map("deliveryMap").setView([lat,lng],15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      attribution:"© OpenStreetMap contributors"
+    }).addTo(deliveryMap);
+    deliveryMarker = L.marker([lat,lng]).addTo(deliveryMap);
+  }else{
+    deliveryMap.setView([lat,lng],15);
+    deliveryMarker.setLatLng([lat,lng]);
+  }
+
+  setTimeout(()=>deliveryMap.invalidateSize(),100);
+}
+
+/* ---------- PRIVATE ADMIN ---------- */
+
+liveAuth.onAuthStateChanged(user => {
+  if(window.location.hash.toLowerCase() !== "#admin") return;
+
+  const loginBox = document.getElementById("adminLogin");
+  const content = document.getElementById("adminContent");
+  const message = document.getElementById("adminLoginMessage");
+
+  if(user && user.email &&
+     user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()){
+
+    loginBox.style.display = "none";
+    content.style.display = "block";
+    message.textContent = "";
+    loadAdminOrders();
+
+  }else{
+    content.style.display = "none";
+    loginBox.style.display = "block";
+
+    if(user){
+      message.textContent =
+        "This Google account is not authorized for DardomaMOGS.";
+      liveAuth.signOut();
+    }
+  }
+});
+
+function adminLogin(){
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  liveAuth.signInWithPopup(provider).catch(error=>{
+    document.getElementById("adminLoginMessage").textContent =
+      error.message;
+  });
+}
+
+function adminLogout(){
+  liveAuth.signOut();
+}
+
+function loadAdminOrders(){
+  if(adminOrdersUnsubscribe) adminOrdersUnsubscribe();
+
+  adminOrdersUnsubscribe = liveDb.collection("orders")
+    .orderBy("createdAt","desc")
+    .onSnapshot(snapshot=>{
+      const box = document.getElementById("adminOrders");
+
+      if(snapshot.empty){
+        box.innerHTML = "<p class='small-muted'>No orders yet.</p>";
+        return;
+      }
+
+      box.innerHTML = snapshot.docs
+        .map(doc => adminOrderHTML(doc.id,doc.data()))
+        .join("");
+    },()=>{
+      document.getElementById("adminOrders").innerHTML =
+        "<p class='small-muted'>Could not load orders.</p>";
+    });
+}
+
+function adminOrderHTML(id,order){
+  const labels = {
+    received:"🟡 Received",
+    preparing:"🔵 Preparing",
+    delivery:"🚚 Out for delivery",
+    delivered:"🟢 Delivered"
+  };
+
+  return `
+    <div class="admin-order">
+      <div class="admin-row">
+        <strong>🧾 ${escapeHTML(String(order.number || ""))}</strong>
+        <span class="admin-status">${labels[order.status] || labels.received}</span>
+      </div>
+
+      <p><strong>👤 Customer:</strong> ${escapeHTML(String(order.name || ""))}</p>
+      <p><strong>📱 Contact:</strong> ${escapeHTML(String(order.contact || ""))}</p>
+      <p><strong>💳 Payment:</strong> ${escapeHTML(String(order.payment || ""))}</p>
+      <p><strong>🛍️ Items:</strong><br>${escapeHTML(String(order.items || "")).replace(/\\n/g,"<br>")}</p>
+      <p><strong>💰 Total:</strong> ${escapeHTML(String(order.total || 0))} EGP</p>
+
+      <div class="location-grid">
+        <input id="lat-${id}" placeholder="Delivery latitude"
+               value="${typeof order.lat === "number" ? order.lat : ""}">
+        <input id="lng-${id}" placeholder="Delivery longitude"
+               value="${typeof order.lng === "number" ? order.lng : ""}">
+      </div>
+
+      <div class="admin-buttons">
+        <button onclick="setAdminStatus('${id}','received')">🟡 Received</button>
+        <button onclick="setAdminStatus('${id}','preparing')">🔵 Preparing</button>
+        <button onclick="setDeliveryStatus('${id}')">🚚 Out for delivery</button>
+        <button onclick="setAdminStatus('${id}','delivered')">🟢 Delivered</button>
+      </div>
+    </div>
+  `;
+}
+
+function setAdminStatus(id,status){
+  liveDb.collection("orders").doc(id).update({
+    status: status
+  });
+}
+
+function setDeliveryStatus(id){
+  const lat = Number(document.getElementById("lat-"+id).value);
+  const lng = Number(document.getElementById("lng-"+id).value);
+
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)){
+    alert("Enter a valid delivery latitude and longitude first.");
+    return;
+  }
+
+  liveDb.collection("orders").doc(id).update({
+    status: "delivery",
+    lat: lat,
+    lng: lng
+  });
+}
+
+/* Request browser notification permission only when the customer
+   explicitly starts tracking. */
+function requestCustomerNotificationPermission(){
+  if("Notification" in window &&
+     Notification.permission === "default"){
+    Notification.requestPermission();
+  }
+}
+
+const oldTrackButton = document.querySelector(
+  '#trackingPanel button[onclick="trackLiveOrder()"]'
+);
+if(oldTrackButton){
+  oldTrackButton.addEventListener("click",
+    requestCustomerNotificationPermission);
+}
 </script>
 
 </body>
