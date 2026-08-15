@@ -727,21 +727,18 @@ function escapeHTML(text){
   There are still NO add-to-cart buttons on this page.
 */
 const params = new URLSearchParams(window.location.search);
-const productFromLink = params.get("product");
+const productFromLink = params.get("product") || params.get("add");
 
 if(productFromLink && products[productFromLink]){
-  if(isStoreOpen() && !products[productFromLink].soldOut){
-    cart[productFromLink] =
-      (cart[productFromLink] || 0) + 1;
-
+  if(!products[productFromLink].soldOut){
+    cart[productFromLink] = (cart[productFromLink] || 0) + 1;
     saveCart();
   }
 
-  history.replaceState(
-    {},
-    "",
-    window.location.pathname
-  );
+  // Remove the add-product query so refreshing the Cart does not add
+  // the same product again.
+  const cleanUrl = window.location.pathname + window.location.hash;
+  history.replaceState({}, "", cleanUrl);
 }
 
 updateStoreStatus();
@@ -992,6 +989,28 @@ window.addEventListener("DOMContentLoaded",()=>{
     openCustomerTracking(decodeURIComponent(location.hash.substring(7)));
   }
 });
+</script>
+
+
+<script>
+/*
+  HOME-PAGE ADD-TO-CART HELPER
+  From the Home page, use:
+    addProductToCart("mango")
+    addProductToCart("karkade")
+    addProductToCart("pepsi")
+
+  Or link directly to the Cart with:
+    cart/index.html?product=mango
+*/
+function addProductToCart(productId){
+  if(!productId){
+    return;
+  }
+
+  const cartUrl = "index.html?product=" + encodeURIComponent(productId);
+  window.location.href = cartUrl;
+}
 </script>
 
 </body>
